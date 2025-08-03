@@ -42,7 +42,7 @@ PyNote uses [Pyodide](https://pyodide.org/), which is a Python distribution for 
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/pynote.git
+   git clone https://github.com/hemantsingh443/pynote.git
    cd pynote
    ```
 
