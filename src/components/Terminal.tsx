@@ -274,34 +274,18 @@ const Terminal: React.FC = () => {
 
     const repoName = repoUrl.split('/').pop() || 'repository';
     const clonePath = `/mnt/content`;
+    const zipUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`${repoUrl}/archive/refs/heads/main.zip`)}`;
     const zipPath = `/tmp/${repoName}.zip`;
 
     addToHistory(`Cloning ${repoUrl} into ${clonePath}/${repoName}...`);
 
     try {
-      // Use the appropriate API URL based on the environment
-      const apiUrl = import.meta.env.DEV 
-        ? '/api/clone-repo' 
-        : 'https://pynote-sigma.vercel.app/api/clone-repo';
-      
-      // Use our serverless function to download the repository
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ repoUrl })
-      });
-      
+      // Download the repository zip file
+      const response = await fetch(zipUrl);
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || `Failed to download repository: ${response.statusText}`);
+        throw new Error(`Failed to download repository: ${response.statusText}`);
       }
-      
-      // Get the zip file as array buffer
       const data = await response.arrayBuffer();
-      
-      // Write the zip file to the virtual filesystem
       (pyodide.FS as any).writeFile(zipPath, new Uint8Array(data), { encoding: 'binary' });
 
       // Extract the zip file

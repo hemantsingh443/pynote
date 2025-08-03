@@ -1,30 +1,18 @@
-import { IncomingMessage, ServerResponse } from 'http';
+import { type NextApiRequest, type NextApiResponse } from 'next';
 import fetch from 'node-fetch';
 
-export async function cloneRepo(req: IncomingMessage, res: ServerResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { repoUrl } = req.body;
+  
+  if (!repoUrl || typeof repoUrl !== 'string') {
+    return res.status(400).json({ error: 'Missing or invalid repoUrl' });
   }
 
   try {
-    // Read request body
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) {
-      chunks.push(chunk);
-    }
-    const body = JSON.parse(Buffer.concat(chunks).toString());
-    const { repoUrl } = body;
-    
-    if (!repoUrl || typeof repoUrl !== 'string') {
-      res.statusCode = 400;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'Missing or invalid repoUrl' }));
-      return;
-    }
-
     // Validate GitHub URL
     const githubUrl = new URL(repoUrl);
     if (githubUrl.hostname !== 'github.com') {
@@ -56,15 +44,12 @@ export async function cloneRepo(req: IncomingMessage, res: ServerResponse) {
     res.setHeader('Content-Length', buffer.length);
     
     // Send the file
-    res.statusCode = 200;
-    res.end(buffer);
+    res.status(200).send(buffer);
   } catch (error) {
     console.error('Error cloning repository:', error);
-    res.statusCode = 500;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ 
+    res.status(500).json({ 
       error: 'Failed to clone repository',
       details: error instanceof Error ? error.message : 'Unknown error'
-    }));
+    });
   }
 }
