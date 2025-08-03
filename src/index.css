@@ -8,7 +8,10 @@
   :root {
     --color-primary: 59 130 246;
     --color-background: 255 255 255;
+    --color-foreground: 15 23 42;
     --color-surface: 248 250 252;
+    --color-surface-hover: 241 245 249;
+    --color-surface-secondary: 248 250 252;
     --color-border: 226 232 240;
     --color-text: 15 23 42;
     --color-text-secondary: 71 85 105;
