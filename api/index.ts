@@ -5,8 +5,8 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({
     message: 'Root API endpoint',
     availableEndpoints: [
-      '/api/test/hello',
-      '/api/clone-repo'
+      `${req.url}/test/hello`,
+      `${req.url}/clone-repo`
     ],
     timestamp: new Date().toISOString()
   });
