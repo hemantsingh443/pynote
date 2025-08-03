@@ -1,55 +1,57 @@
-import { type NextApiRequest, type NextApiResponse } from 'next';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import fetch from 'node-fetch';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).end('Method Not Allowed');
   }
 
   const { repoUrl } = req.body;
-  
+
   if (!repoUrl || typeof repoUrl !== 'string') {
-    return res.status(400).json({ error: 'Missing or invalid repoUrl' });
+    return res.status(400).json({ error: 'Missing or invalid repoUrl in request body' });
   }
 
   try {
-    // Validate GitHub URL
     const githubUrl = new URL(repoUrl);
     if (githubUrl.hostname !== 'github.com') {
-      throw new Error('Only GitHub repositories are supported');
+      return res.status(400).json({ error: 'Invalid repoUrl: Only github.com repositories are supported.' });
     }
 
-    // Construct the direct download URL for the repository zip
     const repoPath = githubUrl.pathname.replace(/\.git$/, '');
     const zipUrl = `https://api.github.com/repos${repoPath}/zipball/main`;
-    
-    // Forward the request to GitHub API
-    const response = await fetch(zipUrl, {
+
+    const githubResponse = await fetch(zipUrl, {
       headers: {
-        'User-Agent': 'PyNote/1.0',
-        'Accept': 'application/vnd.github.v3+json'
-      }
+        Accept: 'application/vnd.github.v3+json',
+        'User-Agent': 'PyNote-Vercel-Proxy',
+      },
     });
 
-    if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.statusText}`);
+    if (!githubResponse.ok || !githubResponse.body) {
+      const errorBody = await githubResponse.text();
+      console.error('GitHub API Error:', errorBody);
+      return res.status(githubResponse.status).send(`Failed to fetch repository from GitHub: ${errorBody}`);
     }
 
-    // Get the zip file as a buffer
-    const buffer = await response.buffer();
-    
-    // Set appropriate headers for file download
+    const disposition = githubResponse.headers.get('content-disposition');
+    let filename = 'repository.zip';
+    if (disposition && disposition.includes('filename=')) {
+      const filenameMatch = /filename=([^;]+)/.exec(disposition);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/"/g, '');
+      }
+    }
+
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${githubUrl.pathname.split('/').pop() || 'repo'}.zip"`);
-    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     
-    // Send the file
-    res.status(200).send(buffer);
+    githubResponse.body.pipe(res);
+
   } catch (error) {
-    console.error('Error cloning repository:', error);
-    res.status(500).json({ 
-      error: 'Failed to clone repository',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    console.error('Proxy Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return res.status(500).json({ error: 'Internal Server Error', details: errorMessage });
   }
 }
