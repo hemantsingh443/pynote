@@ -1,0 +1,315 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: 59 130 246;
+    --color-background: 255 255 255;
+    --color-surface: 248 250 252;
+    --color-border: 226 232 240;
+    --color-text: 15 23 42;
+    --color-text-secondary: 71 85 105;
+    --color-accent: 96 165 250;
+    --color-error: 239 68 68;
+    --color-warning: 245 158 11;
+    --color-success: 16 185 129;
+    --color-code-bg: 241 245 249;
+    --color-code-text: 15 23 42;
+  }
+
+
+}
+
+/* Custom Monaco Editor styles */
+.monaco-editor {
+  --monaco-font-family: 'Fira Code', 'Courier New', monospace;
+  --monaco-font-size: 14px;
+  --monaco-line-height: 1.5;
+  --monaco-cursor-color: rgb(var(--color-text));
+  --monaco-selection-bg: rgba(var(--color-primary) / 0.2);
+  --monaco-line-number-color: rgb(var(--color-text-secondary));
+  --monaco-line-number-active-color: rgb(var(--color-text));
+  --monaco-gutter-bg: rgb(var(--color-background));
+  --monaco-bg: rgb(var(--color-code-bg));
+  --monaco-foreground: rgb(var(--color-code-text));
+  background-color: var(--monaco-bg) !important;
+}
+
+/* Custom scrollbar for the editor */
+.monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(var(--color-text) / 0.2) !important;
+}
+
+.monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(var(--color-text) / 0.3) !important;
+}
+
+/* Custom selection color */
+.monaco-editor .monaco-editor-background,
+.monaco-editor .inputarea.ime-input {
+  background-color: var(--monaco-bg);
+}
+
+/* Custom cursor line highlight */
+.monaco-editor .current-line {
+  border: none !important;
+  background-color: rgba(var(--color-text) / 0.1) !important;
+}
+
+/* Custom selection highlight */
+.monaco-editor .view-overlays .selected-text {
+  background-color: var(--monaco-selection-bg) !important;
+}
+
+/* Custom line numbers */
+.monaco-editor .line-numbers {
+  color: var(--monaco-line-number-color) !important;
+}
+
+.monaco-editor .line-numbers.active-line-number {
+  color: var(--monaco-line-number-active-color) !important;
+  font-weight: 600;
+}
+
+/* Custom scrollbar for the editor */
+.monaco-scrollable-element > .scrollbar > .slider {
+  border-radius: 3px;
+  opacity: 0.8;
+}
+
+/* Custom scrollbar corner */
+.monaco-scrollable-element > .invisible {
+  background-color: var(--monaco-bg);
+}
+
+/* Custom active line number */
+.monaco-editor .current-line ~ .line-numbers {
+  color: var(--monaco-line-number-active-color) !important;
+  font-weight: 600;
+}
+
+  body {
+    @apply bg-background text-foreground transition-colors duration-200;
+  }
+
+/* Apply theme to scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--color-background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-text) / 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-text) / 0.3);
+}
+
+/* Style selection */
+::selection {
+  background: rgb(var(--color-primary) / 0.2);
+}
+
+/* Apply theme to code blocks */
+pre, code {
+  @apply font-mono bg-code-bg text-code-text rounded p-1 text-sm;
+  font-family: 'Fira Code', monospace;
+}
+
+/* Apply theme to buttons */
+button {
+  @apply transition-colors duration-200;
+}
+
+button:focus {
+  @apply outline-none ring-2 ring-primary/50;
+}
+
+/* Apply theme to inputs */
+input, textarea, select {
+  @apply bg-surface border border-border rounded px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent;
+  
+  &::placeholder {
+    color: rgb(var(--color-text-secondary) / 0.5);
+  }
+}
+
+/* Apply theme to cards */
+.card {
+  @apply bg-surface border border-border rounded-lg shadow-sm overflow-hidden;
+}
+
+/* Apply theme to tooltips */
+[data-tooltip] {
+  @apply relative;
+}
+
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  @apply absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs bg-surface border border-border rounded shadow-lg whitespace-nowrap z-50;
+}
+
+/* Apply theme to modals */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-surface border border-border rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto;
+}
+
+/* Apply theme to dropdowns */
+.dropdown {
+  @apply absolute right-0 mt-2 w-56 bg-surface border border-border rounded-md shadow-lg z-10;
+}
+
+/* Apply theme to tabs */
+.tab {
+  @apply px-4 py-2 text-sm font-medium border-b-2 border-transparent;
+  color: rgb(var(--color-text-secondary));
+  transition: color 0.2s, border-color 0.2s;
+  
+  &:hover {
+    color: rgb(var(--color-foreground));
+    border-color: rgb(var(--color-primary) / 0.5);
+  }
+}
+
+.tab-active {
+  @apply text-foreground border-primary;
+}
+
+/* Apply theme to badges */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface border border-border;
+}
+
+/* Apply theme to alerts */
+.alert {
+  @apply p-4 rounded-md border border-border;
+}
+
+.alert-success {
+  @apply bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200;
+}
+
+.alert-warning {
+  @apply bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200;
+}
+
+.alert-error {
+  @apply bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200;
+}
+
+.alert-info {
+  @apply bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200;
+}
+
+/* Apply theme to loading states */
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Markdown specific styles */
+@layer components {
+  .markdown-body {
+    @apply text-base leading-relaxed;
+    color: rgb(var(--color-text));
+  }
+
+  .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+    @apply font-bold border-b pb-2 mb-4;
+    color: rgb(var(--color-text));
+    border-color: rgb(var(--color-border));
+  }
+
+  .markdown-body h1 { @apply text-3xl; }
+  .markdown-body h2 { @apply text-2xl; }
+  .markdown-body h3 { @apply text-xl; }
+  .markdown-body h4 { @apply text-lg; }
+  .markdown-body h5 { @apply text-base; }
+  .markdown-body h6 { @apply text-sm; }
+
+  .markdown-body p {
+    @apply mb-4;
+  }
+
+  .markdown-body a {
+    @apply text-primary no-underline;
+    color: rgb(var(--color-primary));
+    &:hover {
+      @apply underline;
+    }
+  }
+
+  .markdown-body blockquote {
+    @apply border-l-4 pl-4 italic my-4;
+    color: rgb(var(--color-text-secondary));
+    border-color: rgb(var(--color-border));
+  }
+
+  .markdown-body ul, .markdown-body ol {
+    @apply pl-6 mb-4;
+  }
+
+  .markdown-body li {
+    @apply mb-2;
+  }
+
+  .markdown-body code {
+    @apply bg-code-bg text-code-text rounded px-1 py-0.5 text-sm font-mono;
+    background-color: rgb(var(--color-code-bg));
+    color: rgb(var(--color-code-text));
+  }
+
+  .markdown-body pre {
+    @apply bg-code-bg p-4 rounded-md overflow-x-auto;
+    background-color: rgb(var(--color-code-bg));
+  }
+
+  .markdown-body pre code {
+    @apply p-0 bg-transparent;
+    background-color: transparent;
+  }
+
+  .markdown-body table {
+    @apply w-full border-collapse mb-4;
+  }
+
+  .markdown-body th, .markdown-body td {
+    @apply border p-2 text-left;
+    border-color: rgb(var(--color-border));
+  }
+
+  .markdown-body th {
+    @apply font-bold;
+    background-color: rgb(var(--color-surface));
+  }
+
+  .markdown-body hr {
+    @apply border-t my-6;
+    border-color: rgb(var(--color-border));
+  }
+
+  .markdown-body img {
+    @apply max-w-full h-auto rounded-md my-4;
+  }
+}
