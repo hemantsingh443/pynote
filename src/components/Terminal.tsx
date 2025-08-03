@@ -274,19 +274,35 @@ const Terminal: React.FC = () => {
 
     const repoName = repoUrl.split('/').pop() || 'repository';
     const clonePath = `/mnt/content`;
-    const zipUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`${repoUrl}/archive/refs/heads/main.zip`)}`;
     const zipPath = `/tmp/${repoName}.zip`;
 
     addToHistory(`Cloning ${repoUrl} into ${clonePath}/${repoName}...`);
 
     try {
-      // Download the repository zip file
-      const response = await fetch(zipUrl);
+      // Use our Vercel serverless function to download the repository
+      const response = await fetch('/api/clone-repo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ repoUrl })
+      });
+      
       if (!response.ok) {
-        throw new Error(`Failed to download repository: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to download repository: ${response.statusText}`);
       }
-      const data = await response.arrayBuffer();
-      (pyodide.FS as any).writeFile(zipPath, new Uint8Array(data), { encoding: 'binary' });
+      
+      const { data: base64Data } = await response.json();
+      
+      // Convert base64 back to binary data
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      (pyodide.FS as any).writeFile(zipPath, bytes, { encoding: 'binary' });
 
       // Extract the zip file
       await pyodide.runPythonAsync(`
