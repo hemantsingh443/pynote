@@ -1,9 +1,9 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import { type VercelRequest, type VercelResponse } from '@vercel/node';
 import fetch from 'node-fetch';
 
 // Enable CORS for the function
 export const config = {
-  runtime: 'nodejs18.x',
+  runtime: 'nodejs',
 };
 
 // Helper function to log errors to Vercel's logging system
@@ -121,4 +121,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 }
-
