@@ -7,18 +7,25 @@
     <title>PyNote</title>
     <!-- Preload critical resources -->
     <link rel="modulepreload" href="/src/main.tsx" as="script" type="module" />
-    <!-- Ensure proper MIME type for all scripts -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval';
-      style-src 'self' 'unsafe-inline';
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       img-src 'self' data: blob:;
-      font-src 'self' data:;
+      font-src 'self' data: https://fonts.gstatic.com;
       connect-src 'self' https:;
-      media-src 'self';
+      media-src 'self' data: blob:;
       object-src 'none';
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none';
-      block-all-mixed-content;">
+      block-all-mixed-content;
+    ">
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="root"></div>
