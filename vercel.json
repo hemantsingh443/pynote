@@ -1,9 +1,15 @@
 {
   "functions": {
     "api/clone-repo/index.ts": {
-      "runtime": "nodejs",
+      "runtime": "nodejs@18.x",
       "includeFiles": "node_modules/**/*"
     }
   },
-  "version": 2
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/clone-repo/index.ts",
+      "use": "@vercel/node"
+    }
+  ]
 }
