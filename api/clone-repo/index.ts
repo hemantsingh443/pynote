@@ -1,15 +1,14 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import fetch from 'node-fetch';
+// @ts-check
+const { VercelRequest, VercelResponse } = require('@vercel/node');
+const nodeFetch = require('node-fetch');
 
 // Enable CORS for the function
 const config = {
   runtime: 'nodejs',
 };
 
-export { config };
-
 // Helper function to log errors to Vercel's logging system
-function logError(error: unknown, context: Record<string, any> = {}) {
+function logError(error, context = {}) {
   console.error(JSON.stringify({
     timestamp: new Date().toISOString(),
     level: 'ERROR',
@@ -19,7 +18,7 @@ function logError(error: unknown, context: Record<string, any> = {}) {
   }));
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -73,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const zipUrl = `https://api.github.com/repos${repoPath}/zipball/main`;
     
     // Forward the request to GitHub API
-    const response = await fetch(zipUrl, {
+    const response = await nodeFetch(zipUrl, {
       headers: {
         'User-Agent': 'PyNote/1.0',
         'Accept': 'application/vnd.github.v3+json'
@@ -85,7 +84,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Get the zip file as a buffer
-    const buffer = await response.buffer();
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     
     // Set appropriate headers for file download
     res.setHeader('Content-Type', 'application/zip');
@@ -123,3 +123,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 }
+
+module.exports = handler;
