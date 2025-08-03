@@ -139,9 +139,7 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
       log(`Sending response with zip file: ${filename} (${buffer.length} bytes)`);
       return res.status(200).send(buffer);
       
-    } catch (error) {
-      const errorMsg = 'Error processing GitHub response';
-      error(errorMsg, error);
+    } catch (error) {      
       return res.status(500).json({
         error: 'Failed to process repository download',
         details: error instanceof Error ? error.message : 'Unknown error',
