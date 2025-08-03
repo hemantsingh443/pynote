@@ -90,7 +90,9 @@ PyNote comes with several built-in themes. To change the theme:
 
 ### Keyboard Shortcuts
 
-- `Shift+Enter`: Run the current cell
+- `Shift+Enter`: Run the current cell 
+
+remain to be added:
 - `Ctrl+Enter`: Run the current cell and insert a new cell below
 - `Esc`: Enter command mode
 - `a`: Insert a cell above
