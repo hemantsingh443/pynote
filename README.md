@@ -132,7 +132,9 @@ MIT
 - [Pyodide](https://pyodide.org/) - Python with the scientific stack, compiled to WebAssembly
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/) - The code editor that powers VS Code
 - [React](https://reactjs.org/) - A JavaScript library for building user interfaces
-- [Vite](https://vitejs.dev/) - Next Generation Frontend Tooling
+- [Vite](https://vitejs.dev/) - Next Generation Frontend Tooling  
+
+```
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
