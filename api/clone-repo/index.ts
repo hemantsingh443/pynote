@@ -1,14 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import fetch from 'node-fetch';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 
-// ES Modules don't have __dirname by default
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// Enable debug logging
+const DEBUG = true;
+const log = (...args: any[]) => DEBUG && console.log('[clone-repo]', ...args);
+const error = (...args: any[]) => console.error('[clone-repo]', ...args);
 
 // Enable CORS
 const allowCors = (fn: Function) => async (req: VercelRequest, res: VercelResponse) => {
+  log('CORS middleware:', req.method, req.url);
+  
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -19,6 +20,7 @@ const allowCors = (fn: Function) => async (req: VercelRequest, res: VercelRespon
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
+    log('Handling OPTIONS preflight request');
     res.status(200).end();
     return;
   }
@@ -27,11 +29,20 @@ const allowCors = (fn: Function) => async (req: VercelRequest, res: VercelRespon
 };
 
 const handler = async (req: VercelRequest, res: VercelResponse) => {
-  console.log('Request received:', { method: req.method, url: req.url, body: req.body });
+  log('Request received:', { 
+    method: req.method, 
+    url: req.url, 
+    headers: req.headers,
+    body: req.body 
+  });
   
   if (req.method !== 'POST') {
-    console.log('Method not allowed:', req.method);
-    return res.status(405).json({ error: 'Method not allowed' });
+    const errorMsg = `Method not allowed: ${req.method}`;
+    log(errorMsg);
+    return res.status(405).json({ 
+      error: 'Method not allowed',
+      allowed: ['POST']
+    });
   }
 
   // Handle JSON body
@@ -41,16 +52,24 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
     repoUrl = body.repoUrl;
     
     if (!repoUrl || typeof repoUrl !== 'string') {
-      console.log('Invalid repoUrl:', repoUrl);
-      return res.status(400).json({ error: 'Missing or invalid repoUrl' });
+      const errorMsg = `Invalid repoUrl: ${repoUrl}`;
+      log(errorMsg);
+      return res.status(400).json({ 
+        error: 'Missing or invalid repoUrl',
+        received: repoUrl
+      });
     }
   } catch (error) {
-    console.error('Error parsing request body:', error);
-    return res.status(400).json({ error: 'Invalid request body' });
+    const errorMsg = 'Error parsing request body';
+    log(errorMsg, error);
+    return res.status(400).json({ 
+      error: 'Invalid request body',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 
   try {
-    console.log('Processing repository URL:', repoUrl);
+    log('Processing repository URL:', repoUrl);
     
     // Validate GitHub URL
     let githubUrl: URL;
@@ -60,47 +79,74 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
         throw new Error('Only GitHub repositories are supported');
       }
     } catch (error) {
-      console.error('Invalid GitHub URL:', error);
-      return res.status(400).json({ error: 'Invalid GitHub URL' });
+      const errorMsg = 'Invalid GitHub URL';
+      log(errorMsg, error);
+      return res.status(400).json({ 
+        error: errorMsg,
+        details: error instanceof Error ? error.message : 'Invalid URL format'
+      });
     }
 
     // Construct the direct download URL for the repository zip
-    const repoPath = githubUrl.pathname.replace(/\.git$/, '');
-    const repoName = repoPath.split('/').pop() || 'repository';
-    const zipUrl = `https://api.github.com/repos${repoPath}/zipball/main`;
+    const repoPath = githubUrl.pathname.replace(/\.git$/, '').replace(/^\/+/, '');
+    const [owner, repo] = repoPath.split('/');
+    const repoName = repo || 'repository';
+    const zipUrl = `https://api.github.com/repos/${owner}/${repo}/zipball/main`;
     
-    console.log('Fetching repository zip from:', zipUrl);
+    log('Fetching repository zip from:', zipUrl);
     
-    // Forward the request to GitHub API
-    const response = await fetch(zipUrl, {
-      headers: {
-        'User-Agent': 'PyNote/1.0',
-        'Accept': 'application/vnd.github.v3+json'
-      }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GitHub API error:', response.status, response.statusText, errorText);
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
-    }
-
     try {
+      // Forward the request to GitHub API
+      const response = await fetch(zipUrl, {
+        headers: {
+          'User-Agent': 'PyNote/1.0',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const errorMsg = `GitHub API error: ${response.status} ${response.statusText}`;
+        error(errorMsg, { 
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: errorText
+        });
+        
+        return res.status(502).json({
+          error: 'Failed to fetch repository',
+          details: errorMsg,
+          status: response.status,
+          statusText: response.statusText
+        });
+      }
+
       // Get the zip file as a buffer
       const buffer = await response.buffer();
-      console.log(`Downloaded ${buffer.length} bytes`);
+      log(`Downloaded ${buffer.length} bytes`);
       
       // Set appropriate headers for file download
+      const filename = `${repoName}-${Date.now()}.zip`;
       res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="${repoName}.zip"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Length', buffer.length);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       
       // Send the file
-      console.log('Sending response with zip file');
+      log(`Sending response with zip file: ${filename} (${buffer.length} bytes)`);
       return res.status(200).send(buffer);
+      
     } catch (error) {
-      console.error('Error processing GitHub response:', error);
-      throw new Error('Failed to process repository download');
+      const errorMsg = 'Error processing GitHub response';
+      error(errorMsg, error);
+      return res.status(500).json({
+        error: 'Failed to process repository download',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
     }
   } catch (error) {
     console.error('Error in handler:', error);
