@@ -2,17 +2,13 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/clone-repo/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["api/**/*.ts"],
-        "zeroConfig": false
-      }
+      "src": "api/**/*.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/api/(.+)",
       "dest": "/api/$1"
     }
   ]
