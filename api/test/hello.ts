@@ -1,4 +1,4 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import { type VercelRequest, type VercelResponse } from '@vercel/node';
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   console.log('Test endpoint hit!');
