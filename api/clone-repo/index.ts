@@ -124,4 +124,5 @@ async function handler(req, res) {
   }
 }
 
+// Export the handler
 module.exports = handler;
