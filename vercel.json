@@ -2,9 +2,7 @@
   "functions": {
     "api/clone-repo/index.ts": {
       "runtime": "nodejs",
-      "includeFiles": [
-        "node_modules/**/*"
-      ]
+      "includeFiles": "node_modules/**/*"
     }
   },
   "version": 2
