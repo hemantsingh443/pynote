@@ -1,16 +1,63 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import fetch from 'node-fetch';
 
+// Enable CORS for the function
+export const config = {
+  runtime: 'nodejs18.x',
+};
+
+// Helper function to log errors to Vercel's logging system
+function logError(error: unknown, context: Record<string, any> = {}) {
+  console.error(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: 'ERROR',
+    message: error instanceof Error ? error.message : 'Unknown error',
+    stack: error instanceof Error ? error.stack : undefined,
+    ...context
+  }));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  const { repoUrl } = req.body;
-  
-  if (!repoUrl || typeof repoUrl !== 'string') {
-    return res.status(400).json({ error: 'Missing or invalid repoUrl' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ 
+      error: 'Method not allowed',
+      allowedMethods: ['POST', 'OPTIONS']
+    });
   }
+
+  // Log the incoming request for debugging
+  console.log('Request received:', {
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    body: req.body ? JSON.stringify(req.body).substring(0, 500) : 'No body'
+  });
+
+  let repoUrl: string;
+  try {
+    // Parse the request body
+    if (typeof req.body === 'string') {
+      req.body = JSON.parse(req.body);
+    }
+    
+    repoUrl = req.body.repoUrl;
+    
+    if (!repoUrl || typeof repoUrl !== 'string') {
+      return res.status(400).json({ 
+        error: 'Missing or invalid repoUrl',
+        received: typeof req.body === 'object' ? req.body : {}
+      });
+    }
 
   try {
     // Validate GitHub URL
@@ -46,10 +93,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Send the file
     res.status(200).send(buffer);
   } catch (error) {
-    console.error('Error cloning repository:', error);
-    res.status(500).json({ 
+    const errorId = `err_${Date.now()}`;
+    const errorDetails = error instanceof Error ? {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    } : { rawError: String(error) };
+    
+    // Log the full error details
+    logError(error, {
+      errorId,
+      repoUrl,
+      request: {
+        method: req.method,
+        url: req.url,
+        headers: req.headers,
+        body: req.body ? JSON.stringify(req.body).substring(0, 1000) : 'No body'
+      }
+    });
+    
+    // Return a sanitized error response
+    res.status(500).json({
       error: 'Failed to clone repository',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      errorId,
+      details: errorDetails.message || 'An unknown error occurred',
+      timestamp: new Date().toISOString()
     });
   }
 }
+
