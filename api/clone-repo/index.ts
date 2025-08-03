@@ -1,5 +1,11 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import fetch from 'node-fetch';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// ES Modules don't have __dirname by default
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Enable CORS
 const allowCors = (fn: Function) => async (req: VercelRequest, res: VercelResponse) => {
