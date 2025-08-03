@@ -1,10 +1,12 @@
-import { type VercelRequest, type VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import fetch from 'node-fetch';
 
 // Enable CORS for the function
-export const config = {
+const config = {
   runtime: 'nodejs',
 };
+
+export { config };
 
 // Helper function to log errors to Vercel's logging system
 function logError(error: unknown, context: Record<string, any> = {}) {
