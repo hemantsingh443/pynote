@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { CellOutput } from '../store/notebookStore';
 
 interface OutputPanelProps {
-  output?: CellOutput;
+  output?: CellOutput | CellOutput[];
 }
 
 // Helper function to detect if a string is a CSV or TSV
@@ -71,10 +71,9 @@ export function TableView({ data }: { data: string }) {
   );
 }
 
-export default function OutputPanel({ output }: OutputPanelProps) {
+// Component to render a single output
+function SingleOutput({ output }: { output: CellOutput }) {
   const renderOutput = useMemo(() => {
-    if (!output) return null;
-
     switch (output.type) {
       case 'image':
         return (
@@ -129,11 +128,31 @@ export default function OutputPanel({ output }: OutputPanelProps) {
     }
   }, [output]);
 
+  return (
+    <div className="mb-2 last:mb-0">
+      {renderOutput}
+    </div>
+  );
+}
+
+export default function OutputPanel({ output }: OutputPanelProps) {
   if (!output) return null;
 
+  // Handle array of outputs
+  if (Array.isArray(output)) {
+    return (
+      <div className="mt-1 space-y-2">
+        {output.map((singleOutput, index) => (
+          <SingleOutput key={index} output={singleOutput} />
+        ))}
+      </div>
+    );
+  }
+
+  // Handle single output
   return (
     <div className="mt-1">
-      {renderOutput}
+      <SingleOutput output={output} />
     </div>
   );
 }

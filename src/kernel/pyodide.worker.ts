@@ -2,15 +2,49 @@ import { loadPyodide, type PyodideInterface } from 'pyodide';
 
 let pyodide: PyodideInterface | null = null;
 
+// Recursively convert Map objects to plain objects to ensure postMessage compatibility
+function sanitizeForPostMessage(obj: any): any {
+    if (obj instanceof Map) {
+        const plainObj: any = {};
+        for (const [key, value] of obj.entries()) {
+            plainObj[key] = sanitizeForPostMessage(value);
+        }
+        return plainObj;
+    } else if (obj instanceof Set) {
+        return Array.from(obj).map(sanitizeForPostMessage);
+    } else if (Array.isArray(obj)) {
+        return obj.map(sanitizeForPostMessage);
+    } else if (obj && typeof obj === 'object' && obj.constructor === Object) {
+        const sanitized: any = {};
+        for (const [key, value] of Object.entries(obj)) {
+            sanitized[key] = sanitizeForPostMessage(value);
+        }
+        return sanitized;
+    } else if (obj && typeof obj === 'object') {
+        // Handle other object types by converting to string if they can't be serialized
+        try {
+            JSON.stringify(obj);
+            return obj;
+        } catch (e) {
+            return String(obj);
+        }
+    }
+    return obj;
+}
+
 // Python kernel code (same as your existing one)
 const KERNEL_CODE = `
 import sys
 import io
 import base64
+import warnings
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from pyodide.ffi import to_js
+
+# Suppress matplotlib warnings about non-interactive backend
+warnings.filterwarnings('ignore', message='.*FigureCanvasAgg is non-interactive.*')
 
 def run_code(code):
     """
@@ -24,47 +58,65 @@ def run_code(code):
 
     global_vars = sys.modules['__main__'].__dict__
     
+    outputs = []
+    
     try:
         exec(code, global_vars)
         
+        # Get any stdout output first
+        stdout_val = output.getvalue().strip()
+        if stdout_val:
+            outputs.append({'type': 'text', 'data': stdout_val})
+        
+        # Check for matplotlib figures
         fig = plt.gcf()
         if fig.get_axes():
             buf = io.BytesIO()
-            plt.savefig(buf, format='png', bbox_inches='tight')
+            plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
             plt.clf()
             buf.seek(0)
             img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-            return to_js({'type': 'image', 'data': img_base64})
+            outputs.append({'type': 'image', 'data': img_base64})
 
     except Exception as e:
         error_msg = str(e)
         if error_output.getvalue():
-            error_msg = error_output.getvalue() + "\\n" + error_msg
+            error_msg = error_output.getvalue().strip() + "\\n" + error_msg
         return to_js({'type': 'error', 'data': error_msg})
-    
     finally:
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
     
-    stdout_val = output.getvalue()
-    stderr_val = error_output.getvalue()
-    
+    # Check for any errors in stderr
+    stderr_val = error_output.getvalue().strip()
     if stderr_val:
         return to_js({'type': 'error', 'data': stderr_val})
     
-    # Try to evaluate the last expression for DataFrames, etc.
+    # Try to evaluate the last expression for DataFrames, strings, etc.
     try:
         lines = code.strip().split('\\n')
         if lines:
             last_line = lines[-1].strip()
-            if last_line and not last_line.startswith(('print', 'plt.', 'import', 'from', 'def', 'class', 'if', 'for', 'while', 'with', 'try', '#')):
+            if last_line and not last_line.startswith(('print', 'plt.', 'import', 'from', 'def', 'class', 'if', 'for', 'while', 'with', 'try', '#', '=')):
                 last_expr_val = eval(last_line, global_vars)
-                if hasattr(last_expr_val, 'to_html'):
-                    return to_js({'type': 'html', 'data': last_expr_val.to_html()})
+                if last_expr_val is not None:
+                    # Handle DataFrame HTML output
+                    if hasattr(last_expr_val, 'to_html'):
+                        outputs.append({'type': 'html', 'data': last_expr_val.to_html()})
+                    # Handle other expressions (strings, numbers, etc.)
+                    else:
+                        outputs.append({'type': 'text', 'data': str(last_expr_val)})
     except:
         pass
-
-    return to_js({'type': 'string', 'data': stdout_val})
+    
+    # Return outputs based on what we have
+    if len(outputs) > 1:
+        return to_js(outputs)
+    elif len(outputs) == 1:
+        return to_js(outputs[0])
+    else:
+        # No outputs captured, return empty string
+        return to_js({'type': 'string', 'data': ''})
 `;
 
 // Initialize Pyodide
@@ -180,36 +232,41 @@ self.onmessage = async (event) => {
                     const jsResult = result.toJs();
                     result.destroy();
                     
+                    // Sanitize the result to remove any Map objects
+                    const sanitizedResult = sanitizeForPostMessage(jsResult);
+                    
+                    // Check if it's an array of outputs
+                    if (Array.isArray(sanitizedResult)) {
+                        output = sanitizedResult;
+                    }
                     // Ensure the result has the correct CellOutput format
-                    if (jsResult && typeof jsResult === 'object' && jsResult.type && jsResult.data !== undefined) {
-                        output = jsResult;
+                    else if (sanitizedResult && typeof sanitizedResult === 'object' && sanitizedResult.type && sanitizedResult.data !== undefined) {
+                        output = sanitizedResult;
                     } else {
-                        output = { type: 'string', data: JSON.stringify(jsResult, null, 2) };
-                    }
-                } else if (result instanceof Map) {
-                    const mapResult = Object.fromEntries(result);
-                    // Check if it's already in CellOutput format
-                    if (mapResult.type && mapResult.data !== undefined) {
-                        output = mapResult;
-                    } else {
-                        output = { type: 'string', data: JSON.stringify(mapResult, null, 2) };
-                    }
-                } else if (result && typeof result === 'object') {
-                    // Handle plain objects
-                    if (result.type && result.data !== undefined) {
-                        output = result;
-                    } else {
-                        output = { type: 'string', data: JSON.stringify(result, null, 2) };
+                        output = { type: 'string', data: JSON.stringify(sanitizedResult, null, 2) };
                     }
                 } else {
-                    // Handle primitive types
-                    output = { 
-                        type: 'string', 
-                        data: result !== undefined && result !== null ? String(result) : '' 
-                    };
+                    // Sanitize any result to ensure no Map objects
+                    const sanitizedResult = sanitizeForPostMessage(result);
+                    
+                    if (Array.isArray(sanitizedResult)) {
+                        output = sanitizedResult;
+                    } else if (sanitizedResult && typeof sanitizedResult === 'object' && sanitizedResult.type && sanitizedResult.data !== undefined) {
+                        output = sanitizedResult;
+                    } else if (sanitizedResult && typeof sanitizedResult === 'object') {
+                        output = { type: 'string', data: JSON.stringify(sanitizedResult, null, 2) };
+                    } else {
+                        // Handle primitive types
+                        output = { 
+                            type: 'string', 
+                            data: sanitizedResult !== undefined && sanitizedResult !== null ? String(sanitizedResult) : '' 
+                        };
+                    }
                 }
                 
-                self.postMessage({ type: 'result', data: output, id });
+                // Final safety check before postMessage
+                const finalOutput = sanitizeForPostMessage(output);
+                self.postMessage({ type: 'result', data: finalOutput, id });
                 break;
                 
             case 'install':

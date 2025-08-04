@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getPyodide, executeCodeWithWorker } from '../kernel/PyodideLoader';
 
 export interface CellOutput {
-  type: 'string' | 'html' | 'image' | 'error';
+  type: 'string' | 'html' | 'image' | 'error' | 'text';
   data: string; // Can be text, HTML string, or base64 image data
 }
 
@@ -13,7 +13,7 @@ export interface Cell {
   id: string;
   type: CellType;
   content: string;
-  output?: CellOutput;
+  output?: CellOutput | CellOutput[];
   isExecuting?: boolean;
 }
 
@@ -141,12 +141,29 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
         throw new Error(`Execution error: ${execError.message}`);
       }
       
-      let output: CellOutput;
+      let output: CellOutput | CellOutput[];
       
       // Handle different types of output from worker or main thread
       if (outputFromPython && typeof outputFromPython === 'object') {
+        // Check if it's an array of outputs first
+        if (Array.isArray(outputFromPython)) {
+          // Validate that all items in the array are valid CellOutput objects
+          const isValidOutputArray = outputFromPython.every(item => 
+            item && typeof item === 'object' && 'type' in item && 'data' in item
+          );
+          
+          if (isValidOutputArray) {
+            output = outputFromPython as CellOutput[];
+          } else {
+            // If not all items are valid, convert to string
+            output = {
+              type: 'string',
+              data: JSON.stringify(outputFromPython, null, 2)
+            };
+          }
+        }
         // If it's already a properly formatted CellOutput
-        if ('type' in outputFromPython && 'data' in outputFromPython) {
+        else if ('type' in outputFromPython && 'data' in outputFromPython) {
           output = outputFromPython as CellOutput;
         }
         // If it's a Map (from Python to_js)
