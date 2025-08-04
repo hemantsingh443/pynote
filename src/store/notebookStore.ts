@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { getPyodide } from '../kernel/PyodideLoader';
+import { getPyodide, executeCodeWithWorker } from '../kernel/PyodideLoader';
 
 export interface CellOutput {
   type: 'string' | 'html' | 'image' | 'error';
@@ -109,49 +109,97 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
 
   // Action to execute Python code in a cell.
   executeCode: async (id) => {
-    const pyodide = await getPyodide();
     const cell = get().cells.find(c => c.id === id);
     if (!cell || cell.type !== 'code' || !cell.content.trim()) {
       return; // Do nothing if cell is empty
     }
 
     try {
-      // Reset output before execution
+      // Set executing state
       set((state) => ({
-        cells: state.cells.map(c => c.id === id ? { ...c, output: { type: 'string', data: 'Running...' } } : c)
+        cells: state.cells.map(c => 
+          c.id === id 
+            ? { ...c, isExecuting: true, output: { type: 'string', data: 'Running...' } } 
+            : c
+        )
       }));
 
-      // Get our Python kernel function
-      const runCodeKernel = pyodide.globals.get('run_code');
-      // Execute the code using our robust kernel
-      const outputFromPython = await runCodeKernel(cell.content);
+      // Yield to the browser to update the UI
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Use worker-aware execution for non-blocking UI
+      let outputFromPython;
+      try {
+        // Set a 30-second timeout for execution
+        outputFromPython = await Promise.race([
+          executeCodeWithWorker(cell.content),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Execution timed out after 30 seconds')), 30000)
+          )
+        ]);
+      } catch (execError: any) {
+        throw new Error(`Execution error: ${execError.message}`);
+      }
       
       let output: CellOutput;
       
-      // Check if the result is a Map (from to_js in Python)
-      if (outputFromPython instanceof Map) {
-        // Convert Map to plain object
-        output = Object.fromEntries(outputFromPython);
-      } 
-      // Check if it's a PyProxy with toJs method
-      else if (outputFromPython && typeof outputFromPython.toJs === 'function') {
-        // Handle PyProxy objects (DataFrames, etc)
-        output = outputFromPython.toJs();
-        outputFromPython.destroy(); // Clean up the proxy
-      } 
-      // Handle other cases (strings, numbers, etc)
-      else {
-        output = { type: 'string', data: String(outputFromPython) };
+      // Handle different types of output from worker or main thread
+      if (outputFromPython && typeof outputFromPython === 'object') {
+        // If it's already a properly formatted CellOutput
+        if ('type' in outputFromPython && 'data' in outputFromPython) {
+          output = outputFromPython as CellOutput;
+        }
+        // If it's a Map (from Python to_js)
+        else if (outputFromPython instanceof Map) {
+          output = Object.fromEntries(outputFromPython) as CellOutput;
+        }
+        // If it's a PyProxy with toJs method
+        else if (typeof outputFromPython.toJs === 'function') {
+          output = outputFromPython.toJs();
+          outputFromPython.destroy(); // Clean up the proxy
+        }
+        // If it's a plain object, try to extract meaningful data
+        else {
+          // Check if it has the expected structure
+          if (outputFromPython.type && outputFromPython.data !== undefined) {
+            output = {
+              type: outputFromPython.type,
+              data: outputFromPython.data
+            };
+          } else {
+            // Convert object to JSON string for display
+            output = {
+              type: 'string',
+              data: JSON.stringify(outputFromPython, null, 2)
+            };
+          }
+        }
+      } else {
+        // Handle primitive types (string, number, boolean, null, undefined)
+        output = {
+          type: 'string',
+          data: outputFromPython !== undefined ? String(outputFromPython) : ''
+        };
       }
 
       set((state) => ({
-        cells: state.cells.map((c) => c.id === id ? { ...c, output } : c),
+        cells: state.cells.map((c) => 
+          c.id === id 
+            ? { ...c, output, isExecuting: false } 
+            : c
+        ),
       }));
 
     } catch (err: any) {
       set((state) => ({
         cells: state.cells.map((c) =>
-          c.id === id ? { ...c, output: { type: 'error', data: err.message } } : c
+          c.id === id 
+            ? { 
+                ...c, 
+                output: { type: 'error', data: err.message },
+                isExecuting: false 
+              } 
+            : c
         ),
       }));
     }

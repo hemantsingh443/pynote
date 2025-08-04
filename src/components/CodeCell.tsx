@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNotebookStore, type Cell } from '../store/notebookStore';
 import { useThemeStore, themes as allThemes } from '../store/themeStore';
 import OutputPanel from './OutputPanel';
-import { Play, Type, Trash2, Keyboard } from 'lucide-react';
+import { Play, Type, Trash2, Keyboard, Loader2 } from 'lucide-react';
 import ConfirmationDialog from './ConfirmationDialog';
 import { editorOptions } from '../utils/editorTheme';
 import { defineMonacoTheme } from '../utils/monacoThemes';
@@ -33,7 +33,8 @@ export default function CodeCell({
   onConvertToMarkdown,
   cellNumber,
 }: CodeCellProps) {
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showConvertToMarkdownConfirm, setShowConvertToMarkdownConfirm] = useState(false);
   const updateCell = useNotebookStore((state) => state.updateCell);
   const executeCode = useNotebookStore((state) => state.executeCode);
   const deleteCell = useNotebookStore((state) => state.deleteCell);
@@ -108,8 +109,12 @@ export default function CodeCell({
                   executeCode(cell.id);
                 }}
                 disabled={cell.isExecuting}
-                className="p-1 text-secondary hover:text-accent rounded hover:bg-surface-hover transition-colors"
-                title="Run cell (Shift+Enter)"
+                className={`p-1 rounded transition-colors ${
+                  cell.isExecuting 
+                    ? 'text-accent' 
+                    : 'text-secondary hover:text-accent hover:bg-surface-hover'
+                }`}
+                title={cell.isExecuting ? 'Running...' : 'Run cell (Shift+Enter)'}
               >
                 <div className="relative">
                   <Play className="h-3 w-3" />
@@ -127,7 +132,7 @@ export default function CodeCell({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onConvertToMarkdown();
+                  setShowConvertToMarkdownConfirm(true);
                 }}
                 className="p-1 text-secondary hover:text-accent rounded hover:bg-surface-hover transition-colors"
                 title="Convert to Markdown"
@@ -154,8 +159,23 @@ export default function CodeCell({
                 }}
                 onCancel={() => setShowDeleteConfirm(false)}
               />
+              <ConfirmationDialog
+                isOpen={showConvertToMarkdownConfirm}
+                title="Convert to Markdown"
+                message="Are you sure? The code will be kept, but any output will be cleared."
+                onConfirm={() => {
+                  onConvertToMarkdown();
+                  setShowConvertToMarkdownConfirm(false);
+                }}
+                onCancel={() => setShowConvertToMarkdownConfirm(false)}
+              />
             </div>
             <div className="relative w-full">
+              {cell.isExecuting && (
+                <div className="absolute inset-0 bg-surface/80 z-10 flex items-center justify-center rounded">
+                  <Loader2 className="h-6 w-6 text-accent animate-spin" />
+                </div>
+              )}
               <div className="rounded overflow-hidden">
                 <div className="w-full min-h-[60px] rounded">
                   <Editor

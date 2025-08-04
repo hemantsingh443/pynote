@@ -229,7 +229,8 @@ input, textarea, select {
   50% {
     opacity: 0.5;
   }
-}
+} 
+
 
 /* Markdown specific styles */
 @layer components {

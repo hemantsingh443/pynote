@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { setDirectoryHandle } from '../services/idb';
-import { getPyodide } from '../kernel/PyodideLoader';
+import { getPyodide, worker } from '../kernel/PyodideLoader';
 import { buildPyodideFileTree, type FileNode } from '../utils/file-tree';
 
 interface FileSystemState {
@@ -108,6 +108,12 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       set({ directoryHandle: handle });
       await setDirectoryHandle(handle); // Persist handle to IndexedDB
       await get().refreshFileTree(); // Refresh the file tree view
+
+      // Also send the handle to the worker to mount it there
+      if (worker && handle) {
+        console.log('Sending directory handle to worker...');
+        worker.postMessage({ type: 'mount', data: { handle } });
+      }
 
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {

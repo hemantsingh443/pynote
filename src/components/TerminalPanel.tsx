@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Terminal as TerminalIcon, ChevronUp, X } from 'lucide-react';
 import Terminal from './Terminal';
+import { useThemeStore } from '../store/themeStore';
 
 interface TerminalPanelProps {
   defaultHeight?: number;
@@ -86,22 +87,30 @@ export default function TerminalPanel({
     setIsOpen(!isOpen);
   };
 
+  const { theme } = useThemeStore();
+
   return (
     <div 
       ref={panelRef}
-      className={`fixed bottom-0 left-0 right-0 bg-surface border-t border-border transition-all duration-200 ease-in-out ${
+      className={`fixed bottom-0 left-0 right-0 transition-all duration-200 ease-in-out ${
         isOpen ? 'shadow-lg' : ''
       }`}
       style={{
         height: isOpen ? `${height}px` : `${minHeight}px`,
         zIndex: 40,
         transform: isOpen ? 'translateY(0)' : 'translateY(0)',
+        backgroundColor: theme.colors.background,
+        borderTop: `1px solid ${theme.colors.border}`,
       }}
     >
       {/* Terminal header - now also the toggle button */}
       <div 
-        className={`flex items-center justify-between p-1 bg-surface-secondary border-b border-border cursor-pointer`}
+        className="flex items-center justify-between p-1 cursor-pointer"
         onClick={() => setIsOpen(!isOpen)}
+        style={{
+          backgroundColor: theme.colors.surface,
+          borderBottom: `1px solid ${theme.colors.border}`,
+        }}
       >
         <div className="flex items-center">
           <TerminalIcon className="h-4 w-4 mr-2 text-secondary" />

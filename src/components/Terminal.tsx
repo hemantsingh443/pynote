@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getPyodide, type PyodideInterface } from '../kernel/PyodideLoader';
 import { useFileSystemStore } from '../store/fileSystemStore';
+import { useThemeStore } from '../store/themeStore';
 
 
 // Types
@@ -42,6 +43,7 @@ const Terminal: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [pyodide, setPyodide] = useState<PyodideInterface | null>(null);
   const refreshFileTree = useFileSystemStore((state) => state.refreshFileTree);
+  const { theme } = useThemeStore();
 
   // Refs
   const endOfTerminalRef = useRef<HTMLDivElement>(null);
@@ -479,7 +481,12 @@ Python execution:
 
   return (
     <div 
-      className="h-full flex flex-col bg-surface text-foreground font-mono text-sm rounded-lg border border-border overflow-hidden"
+      className="h-full flex flex-col font-mono text-sm rounded-lg overflow-hidden"
+      style={{
+        backgroundColor: theme.colors.background,
+        color: theme.colors.text,
+        border: `1px solid ${theme.colors.border}`
+      }}
       onClick={() => inputRef.current?.focus()}
     >
       {/* Terminal content */}
@@ -501,13 +508,23 @@ Python execution:
       
       {/* Input area */}
       <div 
-        className="flex items-center p-1.5 border-t border-border bg-surface-secondary"
+        className="flex items-center p-1.5"
+        style={{
+          borderTop: `1px solid ${theme.colors.border}`,
+          backgroundColor: theme.colors.surface
+        }}
       >
-        <span className="text-accent mr-2">{`[${cwd}] $`}</span>
+        <span className="mr-2" style={{ color: theme.colors.accent }}>{`[${cwd}] $`}</span>
         <input
           ref={inputRef}
           type="text"
-          className="flex-grow bg-transparent focus:outline-none text-foreground"
+          className="flex-grow focus:outline-none terminal-input"
+          style={{
+            backgroundColor: 'transparent',
+            color: theme.colors.text,
+            caretColor: theme.colors.accent,
+          }}
+          data-placeholder-color={theme.colors.textSecondary}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}

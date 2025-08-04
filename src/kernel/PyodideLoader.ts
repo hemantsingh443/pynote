@@ -7,6 +7,76 @@ import { useNotebookStore } from '../store/notebookStore';
 let pyodide: PyodideInterface | undefined;
 let pyodideReadyPromise: Promise<PyodideInterface> | undefined;
 
+// Worker-based execution variables
+export let worker: Worker | null = null;
+let isWorkerMode = false;
+let pendingExecutions = new Map<string, { resolve: Function; reject: Function }>();
+let executionId = 0;
+
+// Initialize worker for non-blocking execution
+function initializeWorker() {
+    if (worker) return;
+    
+    try {
+        worker = new Worker(new URL('./pyodide.worker.ts', import.meta.url), {
+            type: 'module'
+        });
+        
+        worker.onmessage = (event) => {
+            const { type, data, id } = event.data;
+            
+            switch (type) {
+                case 'status':
+                    useNotebookStore.getState().setStatus(data);
+                    break;
+                    
+                case 'ready':
+                    useNotebookStore.getState().setStatus('Python kernel ready.');
+                    useNotebookStore.getState().setKernelReady();
+                    isWorkerMode = true;
+                    break;
+                    
+                case 'result':
+                    const pending = pendingExecutions.get(id);
+                    if (pending) {
+                        pendingExecutions.delete(id);
+                        pending.resolve(data);
+                    }
+                    break;
+                    
+                                case 'mounted':
+                    // This confirms the worker has mounted the directory.
+                    useNotebookStore.getState().setStatus('Worker file system synced.');
+                    break;
+
+                case 'error':
+                    if (id) {
+                        const pending = pendingExecutions.get(id);
+                        if (pending) {
+                            pendingExecutions.delete(id);
+                            pending.reject(new Error(data));
+                        }
+                    } else {
+                        useNotebookStore.getState().setStatus(`Error: ${data}`);
+                    }
+                    break;
+            }
+        };
+        
+        worker.onerror = (error) => {
+            console.error('Worker error:', error);
+            useNotebookStore.getState().setStatus('Error: Worker failed');
+        };
+        
+        // Initialize the worker
+        worker.postMessage({ type: 'init' });
+        
+    } catch (error) {
+        console.warn('Worker initialization failed, falling back to main thread:', error);
+        isWorkerMode = false;
+    }
+}
+
 const KERNEL_CODE = `
 import sys
 import io
@@ -78,6 +148,11 @@ async function loadPyodideAndPackages(): Promise<PyodideInterface> {
     if (pyodide) {
         console.log("Pyodide already initialized, returning existing instance");
         return pyodide;
+    }
+    
+    // Check if already initializing
+    if (pyodideReadyPromise) {
+        return pyodideReadyPromise;
     }
     
     try {
@@ -234,14 +309,29 @@ export async function loadLocalFileOrDirectory(): Promise<{ success: boolean, pa
 
 let isPyodideInitialized = false;
 
-export function getPyodide(): Promise<PyodideInterface> {
-    if (!pyodideReadyPromise) {
-        pyodideReadyPromise = loadPyodideAndPackages().then(instance => {
-            isPyodideInitialized = true;
-            return instance;
-        });
+export async function getPyodide(): Promise<PyodideInterface> {
+    if (!pyodide) {
+        // Try to initialize worker first for better performance
+        initializeWorker();
+        pyodide = await loadPyodideAndPackages();
     }
-    return pyodideReadyPromise;
+    return pyodide;
+}
+
+// Worker-aware execution function
+export async function executeCodeWithWorker(code: string): Promise<any> {
+    if (isWorkerMode && worker) {
+        const id = `exec_${++executionId}`;
+        return new Promise((resolve, reject) => {
+            pendingExecutions.set(id, { resolve, reject });
+            worker!.postMessage({ type: 'execute', data: { code }, id });
+        });
+    } else {
+        // Fallback to main thread execution
+        const pyodideInstance = await getPyodide();
+        const runCodeKernel = pyodideInstance.globals.get('run_code');
+        return await runCodeKernel(code);
+    }
 }
 
 export async function cleanupPyodide(): Promise<void> {
