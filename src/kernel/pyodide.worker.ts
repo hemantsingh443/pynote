@@ -71,8 +71,21 @@ def run_code(code):
         # Check for matplotlib figures
         fig = plt.gcf()
         if fig.get_axes():
+            # Set a smaller figure size (width, height in inches)
+            fig.set_size_inches(6, 4)  # Smaller than default
+            
+            # Adjust padding
+            plt.tight_layout(pad=1.0)  # Add some padding around the plot
+            
+            # Save with lower DPI and quality
             buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+            plt.savefig(
+                buf, 
+                format='png', 
+                dpi=100,  # Reduced from 150
+                bbox_inches='tight',
+                pad_inches=0.1  # Reduce padding
+            )
             plt.clf()
             buf.seek(0)
             img_base64 = base64.b64encode(buf.read()).decode('utf-8')
