@@ -106,7 +106,18 @@ export default function TerminalPanel({
       {/* Terminal header - now also the toggle button */}
       <div 
         className="flex items-center justify-between p-1 cursor-pointer"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          // Only toggle if clicking on the header, not on the buttons
+          const target = event?.target as HTMLElement;
+          if (!target.closest('button')) {
+            if (!isOpen) {
+              const viewportHeight = window.innerHeight;
+              const newHeight = Math.min(viewportHeight / 3, 400);
+              setHeight(Math.max(newHeight, minHeight));
+            }
+            setIsOpen(!isOpen);
+          }
+        }}
         style={{
           backgroundColor: theme.colors.surface,
           borderBottom: `1px solid ${theme.colors.border}`,
@@ -127,19 +138,24 @@ export default function TerminalPanel({
           >
             <ChevronUp className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-0' : 'rotate-180'}`} />
           </button>
-          {isOpen && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isOpen) {
                 setIsOpen(false);
                 setHeight(minHeight);
-              }}
-              className="p-1 rounded-md text-secondary hover:text-foreground hover:bg-surface-hover"
-              aria-label="Close terminal"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+              } else {
+                const viewportHeight = window.innerHeight;
+                const newHeight = Math.min(viewportHeight / 3, 400);
+                setHeight(Math.max(newHeight, minHeight));
+                setIsOpen(true);
+              }
+            }}
+            className="p-1 rounded-md text-secondary hover:text-foreground hover:bg-surface-hover"
+            aria-label={isOpen ? 'Close terminal' : 'Open terminal'}
+          >
+            {isOpen ? <X className="h-4 w-4" /> : <TerminalIcon className="h-4 w-4" />}
+          </button>
         </div>
       </div>
       
